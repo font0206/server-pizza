@@ -1,0 +1,39 @@
+server:
+ port: 9191
+app:
+ host-config: localhost
+ host-discovery: localhost
+spring:
+ config:
+  import: "optional:configserver:"
+ application:
+  name: API-GATEWAY
+ cloud:
+  config:
+   uri: http://${app.host-config}:8888
+  gateway:
+   routes:
+   - id: pizzaService
+     uri: lb://PIZZA-SERVICE
+     predicates:
+     - Path=/api/pizzas/**, /v3/api-docs/**
+     filters:
+     - RewritePath=/api/pizzas/v3/api-docs(?<segment>/?.*), /v3/api-docs$\{segment}
+   - id: cartService
+     uri: lb://CART-SERVICE
+     predicates:
+     - Path=/api/carts/**, /v3/api-docs/**
+     filters:
+     - RewritePath=/api/carts/v3/api-docs(?<segment>/?.*), /v3/api-docs$\{segment}
+   - id: authService
+     uri: lb://AUTH-SERVICE
+     predicates:
+     - Path=/api/auth/**, /v3/api-docs/**
+     filters:
+     - RewritePath=/api/auth/v3/api-docs(?<segment>/?.*), /v3/api-docs$\{segment}
+   - id: swagger
+     predicates:
+      - Path=/v3/api-docs/**
+     filters:
+     - RewritePath=/v3/api-docs/(?<path>.*), /$\{path}/v2/api-docs
+     uri: http://${app.host-config}:${server.port}

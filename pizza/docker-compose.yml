@@ -1,0 +1,154 @@
+version: '3.9'
+# x-common-variables:
+#   &db-env-vars
+#     POSTGRES_DB: anime
+#     POSTGRES_USER: root
+#     POSTGRES_PASSWORD: root
+#     PORT_API: 8383
+
+services:
+    mysql:
+        image: mysql
+        ports:
+            - 3306:3306
+        volumes:
+            - dbdata:/var/lib/mysql
+        environment:
+            - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+            - MYSQL_DATABASE=AuthDB
+        healthcheck:
+            test: "exit 0"
+    cache:
+        image: redis:7
+        restart: always
+        ports:
+        - '6379:6379'
+        command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+        volumes: 
+        - ./redis.conf:/usr/local/etc/redis/redis.conf    
+        - ./cache:/data
+
+    discover:
+        build: ./DiscoveryService/
+        volumes:
+            - discover:/usr/src/myapp
+        ports:
+            - 8761:8761
+        restart: always
+        healthcheck:
+            test: "exit 0"
+    # cloudconfig:
+    #     build: ./SpringCloudConfig/
+    #     volumes:
+    #         - cloudconfig:/usr/src/myapp
+    #     ports:
+    #         - 8888:8888
+    #     restart: always
+    #     healthcheck:
+    #         test: "exit 0"
+    #     environment:
+    #         - app_host-discovery=discover
+    gateway:
+        build: ./ApiGateway/
+        volumes:
+            - gateway:/usr/src/myapp
+        ports:
+            - 9191:9191
+        restart: always
+        depends_on:
+            discover:
+                condition: service_healthy
+
+        links:
+            - discover
+        environment:
+            - eureka.client.serviceUrl.defaultZone=http://discover:8761/eureka/
+
+           
+    auth:
+        build: ./AuthService/
+        volumes:
+            - auth:/usr/src/myapp
+        ports:
+            - 8081:8081
+        restart: always
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+            discover:
+                condition: service_healthy
+<<<<<<< HEAD
+            cache:
+                condition: service_started
+        links:
+            - mysql
+            - discover
+            - cache
+        environment:
+            - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/AuthDB?createDatabaseIfNotExist=true&autoReconnect=true&useSSL=false
+            - eureka.client.serviceUrl.defaultZone=http://discover:8761/eureka/
+            - spring_redis_host=cache
+            - spring_redis_port=6379
+            - REDIS_HOST=cache
+=======
+
+        links:
+            - mysql
+            - discover
+        environment:
+            - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/AuthDB?createDatabaseIfNotExist=true&autoReconnect=true&useSSL=false
+            - eureka.client.serviceUrl.defaultZone=http://discover:8761/eureka/
+>>>>>>> a126f78699f95fe5cb7622aa855687e7cf5c5633
+    product:
+        build: ./ProductService/
+        volumes:
+            - product:/usr/src/myapp
+        ports:
+            - 4000:4000
+        restart: always
+        depends_on:
+            mysql:
+                condition: service_healthy
+            discover:
+                condition: service_healthy
+
+        links:
+            - mysql
+            - discover
+        environment:
+            - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ProductDB?createDatabaseIfNotExist=true&autoReconnect=true&useSSL=false
+            - eureka.client.serviceUrl.defaultZone=http://discover:8761/eureka/
+            - app_host-auth=auth
+    cart:
+        build: ./CartService/
+        volumes:
+            - cart:/usr/src/myapp
+        ports:
+            - 8082:8082
+        restart: always
+        depends_on:
+            mysql:
+                condition: service_healthy
+            discover:
+                condition: service_healthy
+
+
+        links:
+            - mysql
+            - discover
+            - product
+        environment:
+            - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/CartDB?createDatabaseIfNotExist=true&autoReconnect=true&useSSL=false
+            - eureka.client.serviceUrl.defaultZone=http://discover:8761/eureka/
+            - app_host-auth=auth
+            - app_host-product=product
+volumes:
+    dbdata:
+    auth:
+    gateway:
+    discover:
+    product:
+    cart:
+    cloudconfig:
+    cache:
